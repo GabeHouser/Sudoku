@@ -1,0 +1,20 @@
+For this phase of the project, I am submitting the beta version of my program. This version represents a significant step forward from the alpha version, primarily in terms of the user interface and functionality. While I have not yet implemented the Killer Sudoku mode, I’ve made substantial progress in refining other aspects of the game.
+
+Key improvements in the beta version include:
+
+1. Graphical User Interface (GUI): I have successfully implemented the GUI for starting the game and for the gameplay itself. The interface is user-friendly, with clear sections for selecting the 
+difficulty level and interacting with the board.
+2. Board and Input Validation: I’ve developed methods to check the validity of the Sudoku board and the player’s inputs. These checks ensure that the user’s moves are correct, and I’ve added 
+graphical indicators to visually highlight errors in real-time. Specifically, if an input is invalid or erroneous, the system now prevents the player from counting it as a mistake and provides 
+immediate feedback by changing the background color of the affected square to yellow. This makes it clear to the player which cells need attention without penalizing them for invalid inputs.
+3. Error Handling for Invalid Inputs:** I’ve implemented functionality that ensures no mistakes are added to the count if the player inputs something that’s invalid—such as entering a number outside 
+the allowed range or placing a number where it violates Sudoku rules. This allows the player to correct mistakes without affecting their mistake tracker, improving the overall experience. 
+4. Board Generation and Error Checking:** The board generation system is much more refined now, supporting multiple difficulty levels with random but solvable puzzles. The validation methods 
+check for errors on the board, continuously providing feedback during gameplay. This took longer than I anticipated due to the complexity of handling various error cases and outcomes, but I’m 
+glad I invested the time in creating a robust system.
+5. Well-Defined Variables: I’ve established a set of well-defined variables that are frequently used throughout the game. This helps maintain consistency and simplifies future updates to the codebase.
+
+While the Killer Sudoku mode and its associated difficulty levels are not yet implemented, the core functionality and GUI are mostly complete, as I envisioned for this phase. Moving forward, I plan 
+to integrate Killer Sudoku, along with its difficulties, in the coming weeks. For now, the main functionality of the game is solid, and I’m pleased with the progress made in this beta version.
+
+I’ll be submitting the code in a zipped file, including all components necessary for the game, so the instructor can review the work done thus far.

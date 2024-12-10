@@ -1,0 +1,164 @@
+
+import javax.swing.*;
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Random;
+
+public class Sudoku extends JFrame {
+    static int[][] board;
+    static int[][] solution;
+    static int mistakes = 0;
+    static final int maxMistakes = 3;
+
+    private JPanel gridPanel;
+    private JLabel statusLabel;
+    private JTextField[][] cells;
+
+    public Sudoku() {
+        board = new int[9][9];
+        solution = new int[9][9];
+        initializeGUI();
+    }
+
+    private void initializeGUI() {
+        setTitle("Sudoku Game");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        // Status Panel
+        statusLabel = new JLabel("Mistakes: 0/3");
+        statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        add(statusLabel, BorderLayout.NORTH);
+
+        // Grid Panel
+        gridPanel = new JPanel(new GridLayout(9, 9));
+        cells = new JTextField[9][9];
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                cells[row][col] = new JTextField();
+                cells[row][col].setHorizontalAlignment(JTextField.CENTER);
+                cells[row][col].setFont(new Font("Arial", Font.BOLD, 18));
+                cells[row][col].setBorder(BorderFactory.createLineBorder(Color.BLACK));
+                if ((row / 3 + col / 3) % 2 == 0) {
+                    cells[row][col].setBackground(Color.LIGHT_GRAY);
+                }
+                gridPanel.add(cells[row][col]);
+
+                // Prevent editing initial numbers
+                int finalRow = row;
+                int finalCol = col;
+                cells[row][col].addActionListener(e -> handlePlayerInput(finalRow, finalCol));
+            }
+        }
+        add(gridPanel, BorderLayout.CENTER);
+
+        // Start button
+        JButton startButton = new JButton("Start New Game");
+        startButton.addActionListener(e -> startGame());
+        add(startButton, BorderLayout.SOUTH);
+
+        pack();
+        setSize(600, 700);
+        setLocationRelativeTo(null);
+        setVisible(true);
+    }
+
+    private void start() {
+        Sudoku game = new Sudoku();
+        game.generateBoard(Mode.REGULAR, Difficulty.EASY);
+        board = game.board;
+        solution = game.solution;
+        mistakes = 0;
+
+        updateBoard();
+        statusLabel.setText("Mistakes: 0/3");
+    }
+
+    private void handlePlayerInput(int row, int col) {
+        String input = cells[row][col].getText().trim();
+        if (!input.matches("\\d") || input.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Invalid input! Enter a number between 1-9.");
+            cells[row][col].setText("");
+            return;
+        }
+        int num = Integer.parseInt(input);
+
+        // Check if the input is correct
+        if (solution[row][col] == num) {
+            board[row][col] = num;
+            cells[row][col].setEditable(false);
+            checkIfSolved();
+        } else {
+            mistakes++;
+            statusLabel.setText("Mistakes: " + mistakes + "/3");
+            if (mistakes >= maxMistakes) {
+                JOptionPane.showMessageDialog(this, "Game Over! You've made 3 mistakes.");
+                showSolution();
+            }
+        }
+    }
+
+    private void checkIfSolved() {
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                if (board[row][col] != solution[row][col]) {
+                    return; // Not solved yet
+                }
+            }
+        }
+        JOptionPane.showMessageDialog(this, "Congratulations! You solved the puzzle!");
+    }
+
+    private void showSolution() {
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                cells[row][col].setText(String.valueOf(solution[row][col]));
+                cells[row][col].setEditable(false);
+            }
+        }
+    }
+
+    private void updateBoard() {
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                if (board[row][col] == 0) {
+                    cells[row][col].setText("");
+                    cells[row][col].setEditable(true);
+                } else {
+                    cells[row][col].setText(String.valueOf(board[row][col]));
+                    cells[row][col].setEditable(false);
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(Sudoku::new);
+    }
+}
+
+        /*
+        mistakes = 0;
+        Sudoku game;
+        while (true) {
+            Mode mode = getMode();
+            Difficulty difficulty = getDiff();
+            game = new Sudoku();
+            game.generateBoard(mode, difficulty);
+            while (mistakes < maxMistakes) {
+                game.printBoard(game.board);
+                getPlayerInput();
+                if (isBoardSolved()) {
+                    System.out.println("YOU WIN!!!!");
+                    System.out.println("Mistakes made "+mistakes);
+                    System.exit(-1);
+                }
+            }
+            System.out.println("You made 3 mistakes! Game Over!");
+            break;
+        }
+        System.out.println("Solution: ");
+        game.printBoard(game.solution);
+
+         */

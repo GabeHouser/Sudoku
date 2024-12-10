@@ -1,0 +1,744 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import java.util.*;
+
+// Enum to represent game modes and difficulty levels
+enum Mode { REGULAR, KILLER }
+enum Difficulty { EASY, MEDIUM, HARD, EXTREME }
+
+class CellPanel extends JPanel {
+    JTextField inputField; // For the cell value
+    JLabel cageSumLabel;   // For the cage total
+
+    public CellPanel() {
+        setLayout(new BorderLayout());
+        inputField = new JTextField();
+        inputField.setHorizontalAlignment(SwingConstants.CENTER);
+        inputField.setFont(new Font("Arial", Font.BOLD, 20));
+        inputField.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        add(inputField, BorderLayout.CENTER);
+
+        // Cage total in the top-left corner
+        cageSumLabel = new JLabel();
+        cageSumLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        cageSumLabel.setHorizontalAlignment(SwingConstants.LEFT);
+        cageSumLabel.setVerticalAlignment(SwingConstants.TOP);
+        cageSumLabel.setForeground(Color.RED);
+        add(cageSumLabel, BorderLayout.NORTH);
+
+        setBorder(BorderFactory.createLineBorder(Color.BLACK));
+    }
+}
+
+class Cage {
+    List<int[]> cells; // List of cells in this cage
+
+    Cage() {
+        this.cells = new ArrayList<>();
+    }
+
+    void addCell(int row, int col) {
+        cells.add(new int[]{row, col});
+    }
+}
+
+
+public class Sudoku extends Component {
+    // Game state variables
+    static int[][] board; // 2D array for the Sudoku board
+    static int[][] solution; // 2D array for the solved Sudoku board
+    static CellPanel[][] cellPanels;
+    static boolean[][] cageAssigned; // Tracks cells already part of a cage
+    static int mistakes = 0;
+    static int maxMistakes = 3;
+    static int generationAttempts = 0;
+    private List<Cage> cages;
+    Random random = null;
+    private static JFrame frame;
+    private JTextField[][] disBoard;
+    private JPanel gridPanel;
+    private JLabel statusLabel;
+    private Map<Integer, Color> cageColors;
+    public Sudoku() {
+        // Initialize board and solution arrays
+        board = new int[9][9];
+        solution = new int[9][9];
+        cageAssigned = new boolean[9][9];
+        this.cages = new ArrayList<>();
+        random = new Random();
+        startMenu();
+
+    }
+
+    public static void main(String[] args) {
+        new Sudoku();
+    }
+
+    public void startMenu() {
+        mistakes = 0;
+        // Create the main frame
+        frame = new JFrame("Sudoku");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(600, 400);
+        frame.setLayout(new BorderLayout());
+
+        // Title at the top
+        JLabel title = new JLabel("Sudoku", SwingConstants.CENTER);
+        title.setFont(new Font("Arial", Font.BOLD, 36));
+        frame.add(title, BorderLayout.NORTH);
+
+        // Main panel for game options
+        JPanel startPanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        startPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Create panels for Regular Sudoku and Killer Sudoku
+        for (String mode : new String[]{"Regular", "Killer"}) {
+            JPanel modePanel = new JPanel(new BorderLayout());
+            modePanel.setBorder(BorderFactory.createTitledBorder(mode + " Sudoku"));
+
+            // Buttons for difficulty levels
+            JPanel buttonPanel = new JPanel(new GridLayout(4, 1, 10, 10));
+            for (String difficulty : new String[]{"Easy", "Medium", "Hard", "Extreme"}) {
+                String actionCommand = mode + "-" + difficulty; // Unique identifier
+                JButton button = new JButton(difficulty);
+                button.setActionCommand(actionCommand); // Assign action command for switch case
+                button.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        gameSelectInput(e.getActionCommand()); // Pass command to switch case
+                    }
+                });
+                buttonPanel.add(button);
+            }
+
+            modePanel.add(buttonPanel, BorderLayout.CENTER);
+            startPanel.add(modePanel);
+        }
+
+        frame.add(startPanel, BorderLayout.CENTER);
+        frame.setVisible(true);
+    }
+
+    private void sudokuBoardGUI() {
+        frame = new JFrame("Sudoku Board");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(600, 600);
+        frame.setLayout(new BorderLayout());
+
+        gridPanel = new JPanel(new GridLayout(9, 9)); // 9x9 grid for Sudoku
+        disBoard = new JTextField[9][9]; // Text fields for user input
+
+        // Populate the grid with JTextFields
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                JTextField cell = new JTextField();
+                cell.setHorizontalAlignment(SwingConstants.CENTER);
+                cell.setFont(new Font("Arial", Font.BOLD, 20));
+
+                // Pre-fill with numbers if available
+                if (board[row][col] != 0) {
+                    cell.setText(String.valueOf(board[row][col]));
+                    cell.setEditable(false);
+                    cell.setBackground(Color.LIGHT_GRAY);
+                } else {
+                    cell.setEditable(true);
+                    int finalRow = row;
+                    int finalCol = col;
+                    cell.addKeyListener(new KeyAdapter() {
+                        @Override
+                        public void keyReleased(KeyEvent e) {
+                            handlePlayerInput(finalRow, finalCol);
+                        }
+                    });
+                }
+
+                disBoard[row][col] = cell;
+                gridPanel.add(cell);
+            }
+        }
+
+        this.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    checkBoard(disBoard);
+                }
+            }
+        });
+
+        JButton checkBoardButton = new JButton("Check Board");
+        checkBoardButton.addActionListener(e -> checkBoard(disBoard)); // Call checkBoard method when clicked
+
+        // Add the button to your layout, assuming you have a panel for buttons
+        frame.add(checkBoardButton, BorderLayout.NORTH); // Added to the top of the board
+        frame.add(gridPanel, BorderLayout.CENTER);
+
+        // Add a status label at the bottom
+        statusLabel = new JLabel("Mistakes: " + mistakes + "/" + maxMistakes, SwingConstants.CENTER);
+        frame.add(statusLabel, BorderLayout.SOUTH);
+
+        frame.setFocusable(true);
+        frame.setVisible(true);
+    }
+
+    private void handlePlayerInput(int row, int col) {
+        String input = disBoard[row][col].getText();
+
+        // Validate input (optional): Ensure only numbers 1-9 are allowed
+        if (input.isEmpty() || !input.matches("[1-9]")) {
+            return; // Ignore invalid input or empty input
+        }
+
+        // Update the board with valid input
+        board[row][col] = Integer.parseInt(input);
+
+        // After valid input, check if the board is solved
+        if (isBoardSolved()) {
+            // Show win message and redirect to the main menu
+            int choice = JOptionPane.showConfirmDialog(
+                    frame,
+                    "Congratulations! You have solved the puzzle! Return to main menu?",
+                    "You Win!",
+                    JOptionPane.YES_NO_OPTION
+            );
+
+            // If the player chooses "Yes", close the current game window and show the main menu
+            if (choice == JOptionPane.YES_OPTION) {
+                frame.dispose(); // Close the game window
+                startMenu();  // Show the main menu
+            }
+        }
+    }
+
+    private void checkBoard(JTextField[][] disBoard) {
+        // Loop through all cells to check for mistakes
+        System.out.println("checked board");
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                String input = disBoard[row][col].getText();
+                // If the cell is editable and the input doesn't match the solution
+                if (!input.isEmpty()) {
+                    try {
+                        if(Integer.parseInt(input) > 9 || Integer.parseInt(input) < 0){
+                            disBoard[row][col].setBackground(Color.YELLOW); // Invalid input
+                        } else {
+                            int playerInput = Integer.parseInt(input);
+                            if (playerInput != solution[row][col]) {
+                                disBoard[row][col].setBackground(Color.RED); // Highlight mistake
+                                mistakes++;
+                            } else {
+                                disBoard[row][col].setBackground(Color.GREEN); // Correct input
+                            }
+                        }
+                    } catch (NumberFormatException ex) {
+                        disBoard[row][col].setBackground(Color.YELLOW); // Invalid input
+                    }
+                } else {
+                    disBoard[row][col].setBackground(Color.LIGHT_GRAY);
+                }
+            }
+        }
+
+        // Update mistake status label
+        statusLabel.setText("Mistakes: " + mistakes + "/" + maxMistakes);
+
+        // If the mistakes exceed the limit, show a message and stop the game
+        if (mistakes >= maxMistakes) {
+            JOptionPane.showMessageDialog(frame, "Too many mistakes! Game Over.");
+            startMenu();
+        }
+    }
+
+    private void gameSelectInput(String actionCommand) {
+        frame.dispose(); // Close the menu window
+
+        // Use switch to handle the action command
+        switch (actionCommand) {
+            case "Regular-Easy":
+                generateBoard(Mode.REGULAR, Difficulty.EASY);
+                System.out.println("Starting Regular Sudoku on Easy difficulty!");
+                sudokuBoardGUI();
+                break;
+            case "Regular-Medium":
+                generateBoard(Mode.REGULAR, Difficulty.MEDIUM);
+                System.out.println("Starting Regular Sudoku on Medium difficulty!");
+                sudokuBoardGUI();
+                break;
+            case "Regular-Hard":
+                generateBoard(Mode.REGULAR, Difficulty.HARD);
+                System.out.println("Starting Regular Sudoku on Hard difficulty!");
+                sudokuBoardGUI();
+                break;
+            case "Regular-Extreme":
+                generateBoard(Mode.REGULAR, Difficulty.EXTREME);
+                System.out.println("Starting Regular Sudoku on Extreme difficulty!");
+                sudokuBoardGUI();
+                break;
+            case "Killer-Easy":
+                generateBoard(Mode.KILLER, Difficulty.EASY);
+                System.out.println("Starting Killer Sudoku on Easy difficulty!");
+                killerGUI();
+                break;
+            case "Killer-Medium":
+                generateBoard(Mode.KILLER, Difficulty.MEDIUM);
+                System.out.println("Starting Killer Sudoku on Medium difficulty!");
+                killerGUI();
+                break;
+            case "Killer-Hard":
+                generateBoard(Mode.KILLER, Difficulty.HARD);
+                System.out.println("Starting Killer Sudoku on Hard difficulty!");
+                killerGUI();
+                break;
+            case "Killer-Extreme":
+                generateBoard(Mode.KILLER, Difficulty.EXTREME);
+                System.out.println("Starting Killer Sudoku on Extreme difficulty!");
+                killerGUI();
+                break;
+            default:
+                System.out.println("Invalid selection!");
+                break;
+        }
+
+    }
+
+    public static boolean isBoardSolved() {
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                if (board[i][j] != solution[i][j]) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static boolean isNumberInRow(int[][] board, int number, int row) {
+        for (int i = 0; i < 9; i++) {
+            if (board[row][i] == number) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isNumberInColumn(int[][] board, int number, int column) {
+        for (int i = 0; i < 9; i++) {
+            if (board[i][column] == number) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isNumberInBox(int[][] board, int number, int row, int column) {
+        int localBoxRow = row - row % 3;
+        int localBoxColumn = column - column % 3;
+
+        for (int i = localBoxRow; i < localBoxRow + 3; i++) {
+            for (int j = localBoxColumn; j < localBoxColumn + 3; j++) {
+                if (board[i][j] == number) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isValidPlacement(int[][] board, int number, int row, int column) {
+        return !isNumberInRow(board, number, row) &&
+                !isNumberInColumn(board, number, column) &&
+                !isNumberInBox(board, number, row, column);
+    }
+
+    private static boolean solveBoard(int[][] board) {
+        for (int row = 0; row < 9; row++) {
+            for (int column = 0; column < 9; column++) {
+                if (board[row][column] == 0) {
+                    for (int numberToTry = 1; numberToTry <= 9; numberToTry++) {
+                        if (isValidPlacement(board, numberToTry, row, column)) {
+                            board[row][column] = numberToTry;
+                            generationAttempts++;
+                            if (solveBoard(board)) {
+                                return true;
+                            } else {
+                                board[row][column] = 0;
+                            }
+                        }
+                    }
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    void generateBoard(Mode mode, Difficulty diff) {
+        int triedBoards = 0;
+        ArrayList<Integer> rand = new ArrayList<>();
+        for (int i = 1; i < 10; i++) {
+            rand.add(i);
+        }
+        //reset board
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                solution[i][j] = 0;
+            }
+        }
+        while(true){
+            //generate random diagonal
+            Collections.shuffle(rand);
+            for (int i = 0; i < 9; i++) {
+                solution[i][i] = rand.get(i);
+            }
+            //generate random left column
+            Collections.shuffle(rand);
+            for (int i = 1; i < 9; i++){
+                if(isNumberInRow(board, rand.get(i), i)){
+                    Collections.shuffle(rand);
+                }
+            }
+            //fill in solution with solution
+            System.out.println("Generating...");
+            if (solveBoard(solution)) {
+                System.out.println("Loaded after "+generationAttempts+" permutations tried" );
+                break;
+            } else {
+                triedBoards++;
+                System.out.println("Failed Boards:" + triedBoards);
+            }
+        }
+        // Save the generated puzzle to solution (since it's assumed to be valid now)
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                board[i][j] = solution[i][j];
+            }
+        }
+        // Depending on mode and difficulty, remove numbers to create the puzzle
+        if (mode == Mode.REGULAR) {
+            switch (diff) {
+                case EASY:
+                    // Remove cells to match easy difficulty
+                    removeCellsForDifficulty(5, board);
+                    break;
+                case MEDIUM:
+                    removeCellsForDifficulty(20, board);
+                    break;
+                case HARD:
+                    removeCellsForDifficulty(30, board);
+                    break;
+                case EXTREME:
+                    removeCellsForDifficulty(40, board);
+                    break;
+            }
+        }
+        if (mode == Mode.KILLER) {
+            generateCages();
+            switch (diff) {
+                case EASY:
+                    // Remove cells to match easy difficulty
+                    removeCellsForDifficulty(5, board);
+                    break;
+                case MEDIUM:
+                    removeCellsForDifficulty(30, board);
+                    break;
+                case HARD:
+                    removeCellsForDifficulty(40, board);
+                    break;
+                case EXTREME:
+                    removeCellsForDifficulty(50, board);
+                    break;
+            }
+        }
+    }
+
+    void removeCellsForDifficulty(int cellsToRemove, int[][] board) {
+        int count = 0;
+        while (count < cellsToRemove) {
+            int row = random.nextInt(9);
+            int col = random.nextInt(9);
+            if (board[row][col] != 0) {
+                board[row][col] = 0;
+                count++;
+            }
+        }
+    }
+
+
+
+
+    private void killerGUI() {
+        frame = new JFrame("Killer Sudoku Board");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(600, 600);
+        frame.setLayout(new BorderLayout());
+
+        gridPanel = new JPanel(new GridLayout(9, 9)); // 9x9 grid for Sudoku
+        CellPanel[][] cellPanels = new CellPanel[9][9]; // Cell panels for custom rendering
+        disBoard = new JTextField[9][9];
+
+        // Generate cage colors
+        cageColors = generateCageColors();
+
+        // Populate the grid with CellPanels
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                resetCageColors();
+                CellPanel cellPanel = new CellPanel();
+                JTextField cell = new JTextField();
+                cellPanels[row][col] = cellPanel;
+
+                // Check if the cell belongs to a cage
+                int cageId = getCageId(row, col);
+                if (cageId != -1) {
+                    cellPanel.cageSumLabel.setBackground(cageColors.get(cageId));
+                    int cageSum = getCageSum(cageId);
+                    cellPanel.cageSumLabel.setText(String.valueOf(cageSum));
+                }
+
+                // Pre-fill with numbers if available
+                if (board[row][col] != 0) {
+                    cellPanel.inputField.setText(String.valueOf(board[row][col]));
+                    cellPanel.inputField.setEditable(false);
+                    //set color to show that cell is solved
+                    cellPanel.cageSumLabel.setBackground(cellPanel.getBackground().darker());
+
+                } else {
+                    cell.setEditable(true);
+                    int finalRow = row;
+                    int finalCol = col;
+                    cellPanel.inputField.addKeyListener(new KeyAdapter() {
+                        @Override
+                        public void keyReleased(KeyEvent e) {
+                            String input = cellPanels[finalRow][finalCol].inputField.getText();
+
+                            // Validate input (optional): Ensure only numbers 1-9 are allowed
+                            if (input.isEmpty() || !input.matches("[1-9]")) {
+                                return; // Ignore invalid input or empty input
+                            }
+
+                            // Update the board with valid input
+                            board[finalRow][finalCol] = Integer.parseInt(input);
+
+                            // After valid input, check if the board is solved
+                            if (isBoardSolved()) {
+                                // Show win message and redirect to the main menu
+                                int choice = JOptionPane.showConfirmDialog(
+                                        frame,
+                                        "Congratulations! You have solved the puzzle! Return to main menu?",
+                                        "You Win!",
+                                        JOptionPane.YES_NO_OPTION
+                                );
+
+                                // If the player chooses "Yes", close the current game window and show the main menu
+                                if (choice == JOptionPane.YES_OPTION) {
+                                    frame.dispose(); // Close the game window
+                                    startMenu();  // Show the main menu
+                                }
+                            }
+                        }
+                    });
+                }
+
+                gridPanel.add(cellPanel.inputField);
+            }
+        }
+
+        JButton checkBoardButton = new JButton("Check Board");
+        checkBoardButton.addActionListener(e -> checkKiller());
+
+        frame.add(checkBoardButton, BorderLayout.NORTH); // Added to the top of the board
+        frame.add(gridPanel, BorderLayout.CENTER);
+
+        // Adding a status label at the bottom of the frame
+        statusLabel = new JLabel("Mistakes: " + mistakes + "/" + maxMistakes, SwingConstants.CENTER);
+        frame.add(statusLabel, BorderLayout.SOUTH);
+
+        // Set focus to the frame and make it visible
+        frame.setFocusable(true);
+        frame.setVisible(true);
+    }
+
+    private void checkKiller() {
+        // Loop through all cells to check for mistakes
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                String input = disBoard[row][col].getText();
+                // If the cell is editable and the input doesn't match the solution
+                if (!input.isEmpty()) {
+                    try {
+                        if(Integer.parseInt(input) > 9 || Integer.parseInt(input) < 0){
+                            disBoard[row][col].setBackground(Color.YELLOW); // Invalid input
+                        } else {
+                            int playerInput = Integer.parseInt(input);
+                            if (playerInput != solution[row][col]) {
+                                disBoard[row][col].setBackground(Color.RED); // Highlight mistake
+                                mistakes++;
+                            } else {
+                                disBoard[row][col].setBackground(Color.GREEN); // Correct input
+                            }
+                        }
+                    } catch (NumberFormatException ex) {
+                        disBoard[row][col].setBackground(Color.YELLOW); // Invalid input
+                    }
+                } else {
+                    disBoard[row][col].setBackground(Color.LIGHT_GRAY);
+                }
+            }
+        }
+    }
+
+    private boolean isTopLeftOfCage(int row, int col, int cageId) {
+        for (int[] cell : cages.get(cageId).cells) {
+            if (cell[0] == row && cell[1] == col) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int getCageSum(int cageId) {
+        int sum = 0;
+        for (int[] cell : cages.get(cageId).cells) {
+            sum += solution[cell[0]][cell[1]];
+        }
+        return sum;
+    }
+
+    private void resetCageColors() {
+        // Reset the background colors of all cells to their original cage colors
+        generateCageColors();
+        for (int row = 0; row < 9; row++) {
+            for (int col = 0; col < 9; col++) {
+                int cageId = getCageId(row, col);
+                if (cageId != -1) {
+                    cellPanel.cageSumLabel[row][col].setBackground(cageColors.get(cageId)); // Set the original cage color
+                }
+            }
+        }
+    }
+
+    void generateCages() {
+        Random rand = new Random();
+
+        // Clear any existing cages
+        cages.clear(); // Clear the previous cages
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                cageAssigned[i][j] = false; // Reset the cageAssigned grid
+            }
+        }
+
+        // Loop through the grid to assign cages
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                // Skip if this cell is already assigned to a cage
+                if (cageAssigned[i][j]) continue;
+
+                // Start a new cage
+                Cage cage = new Cage();
+                cages.add(cage);  // Add the cage to the list of cages
+
+                // Assign the initial cell
+                assignCellToCage(i, j, cage);
+
+                // Determine the cage size (between 4 and 7 cells to avoid very small cages)
+                int cageSize = rand.nextInt(4);  // Cage size between 4 and 7
+
+                // Use a queue for breadth-first assignment of cells to cages
+                Queue<int[]> cellsToAssign = new LinkedList<>();
+                cellsToAssign.add(new int[]{i, j});
+
+                // Expand the cage until it reaches the desired size or no more neighbors
+                while (!cellsToAssign.isEmpty() && cage.cells.size() < cageSize) {
+                    int[] currentCell = cellsToAssign.poll();
+                    int currentRow = currentCell[0];
+                    int currentCol = currentCell[1];
+
+                    // Get all valid neighbors
+                    List<int[]> neighbors = getUnassignedNeighbors(currentRow, currentCol);
+
+                    // Add valid neighbors to the queue and assign them to the cage
+                    for (int[] neighbor : neighbors) {
+                        int neighborRow = neighbor[0];
+                        int neighborCol = neighbor[1];
+
+                        assignCellToCage(neighborRow, neighborCol, cage);
+                        cellsToAssign.add(neighbor);  // Add this neighbor to the list of cells to process
+                    }
+                }
+
+                // After expansion, if the cage size is still smaller than desired, stop
+                if (cage.cells.size() < cageSize) {
+                    System.out.println("Warning: Cage did not reach desired size.");
+                }
+            }
+        }
+    }
+
+    private void assignCellToCage(int row, int col, Cage cage) {
+        cage.addCell(row, col);
+        cageAssigned[row][col] = true;
+    }
+
+    private int getCageId(int row, int col) {
+        for (int i = 0; i < cages.size(); i++) {
+            Cage cage = cages.get(i);
+            for (int[] cell : cage.cells) {
+                if (cell[0] == row && cell[1] == col) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    public Map<Integer, Color> generateCageColors() {
+        Map<Integer, Color> cageColors = new HashMap<>();
+        Random random = new Random();
+
+        // Assign random colors to cages, avoiding white and gray
+        for (int i = 0; i < cages.size(); i++) {
+            int red, green, blue;
+            do {
+                // Generate random RGB values between 0 and 255
+                red = random.nextInt(256);
+                green = random.nextInt(256);
+                blue = random.nextInt(256);
+            } while (isWhiteOrGray(red, green, blue)); // Regenerate if the color is white or gray
+
+            // Create a new color with the random RGB values
+            cageColors.put(i, new Color(red, green, blue));
+        }
+
+        return cageColors;
+    }
+
+    private boolean isWhiteOrGray(int red, int green, int blue) {
+        // Check if the color is white (255, 255, 255) or gray (where all RGB values are equal)
+        return (red == green && green == blue) || (red == 255 && green == 255 && blue == 255);
+    }
+
+    private List<int[]> getUnassignedNeighbors(int row, int col) {
+        List<int[]> neighbors = new ArrayList<>();
+        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}; // Up, Down, Left, Right
+
+        for (int[] dir : directions) {
+            int newRow = row + dir[0];
+            int newCol = col + dir[1];
+
+            // Check bounds and unassigned status
+            if (newRow >= 0 && newRow < 9 && newCol >= 0 && newCol < 9 && !cageAssigned[newRow][newCol]) {
+                neighbors.add(new int[]{newRow, newCol});
+            }
+        }
+        return neighbors;
+    }
+}
