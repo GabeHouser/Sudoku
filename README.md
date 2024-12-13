@@ -1,7 +1,7 @@
 Sudoku Game README
 
 *****************************************************************
-The final project with all files is located in Sudoku(10).zip
+**The final project with all files is located in Sudoku(10).zip**
 *****************************************************************
 
 Overview
