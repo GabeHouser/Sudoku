@@ -1,4 +1,9 @@
 Sudoku Game README
+
+*****************************************************************
+The final project with all files is located in Sudoku(10).zip
+*****************************************************************
+
 Overview
 This project is a Java-based Sudoku game featuring two main modes: Regular Sudoku and Killer Sudoku. The game allows players to play Sudoku puzzles with different difficulty levels (Easy, Medium, Hard, Extreme). The user interface is built using Java Swing, providing an interactive grid with input fields for the Sudoku board and color-coded cages for the Killer Sudoku variant.
 
